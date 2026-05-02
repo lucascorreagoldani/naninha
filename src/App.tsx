@@ -29,7 +29,7 @@ export default function App() {
   const [messageIndex, setMessageIndex] = useState(0);
   const [isRaining, setIsRaining] = useState(false);
   const [rainAudio] = useState(new Audio('https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg'));
-  const [emojiClicks, setEmojiClicks] = useState(0);
+  const [, setEmojiClicks] = useState(0);
   const [showHearts, setShowHearts] = useState(false);
 
   useEffect(() => {
