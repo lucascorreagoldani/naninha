@@ -6,10 +6,19 @@
   padding: 0;
 }
 
+html, body {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: 'Nunito', sans-serif;
   background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-  min-height: 100vh;
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -19,7 +28,22 @@ body {
 
 body.dark-mode {
   background: linear-gradient(135deg, #0f172a 0%, #312e81 100%);
+  background-attachment: fixed;
+  background-size: cover;
+  background-repeat: no-repeat;
   color: #e2e8f0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .container {
@@ -388,7 +412,7 @@ body.dark-mode .alarm-label {
   max-width: 350px;
   text-align: center;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: popCenter 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .modal-content p {
@@ -427,10 +451,6 @@ body.dark-mode .alarm-label {
 @keyframes popIn {
   from { opacity: 0; transform: translateX(-50%) scale(0.8); }
   to { opacity: 1; transform: translateX(-50%) scale(1); }
-}
-
-.modal-content {
-  animation: popCenter 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes popCenter {
