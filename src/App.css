@@ -37,10 +37,10 @@ body.dark-mode {
 #root {
   width: 100%;
   min-height: 100vh;
-  max-width: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: none !important;
+  max-width: none;
+  padding: 0;
+  margin: 0;
+  border: none;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -403,6 +403,113 @@ body.dark-mode .alarm-label {
   font-size: 1.2rem;
   color: #ff758c;
   animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.extra-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 2px 7px;
+  border-radius: 20px;
+  margin-left: 6px;
+  letter-spacing: 0;
+}
+
+.preview-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff0f3;
+  border-radius: 14px;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  animation: fadeIn 0.3s ease;
+}
+
+body.dark-mode .preview-time {
+  background: #1e293b;
+}
+
+.preview-label {
+  font-size: 0.95rem;
+  color: #666;
+  font-weight: 700;
+}
+
+body.dark-mode .preview-label {
+  color: #94a3b8;
+}
+
+.preview-value {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: #ff758c;
+}
+
+body.dark-mode .preview-value {
+  color: #f472b6;
+}
+
+.time-left {
+  margin: 10px 0 5px;
+  font-size: 1rem;
+  color: #555;
+  font-weight: 700;
+}
+
+body.dark-mode .time-left {
+  color: #94a3b8;
+}
+
+.time-left-value {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: #6a82fb;
+}
+
+body.dark-mode .time-left-value {
+  color: #818cf8;
+}
+
+body.dark-mode .confirmation-area {
+  background: #1e293b;
+}
+
+body.dark-mode .highlight-text {
+  color: #cbd5e1;
+}
+
+body.dark-mode .modal-content {
+  background: #1e293b;
+}
+
+body.dark-mode .modal-content p {
+  color: #e2e8f0;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.modal-btn-secondary {
+  background: #cbd5e1;
+  color: #333;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.modal-btn-secondary:hover {
+  background: #94a3b8;
+  color: white;
 }
 
 .modal-overlay {

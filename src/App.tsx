@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 
 interface AlarmData {
@@ -43,20 +43,32 @@ export default function App() {
   const [recoveredPending, setRecoveredPending] = useState(false);
   const [selectedBase, setSelectedBase] = useState<{ id: string; label: string; hours: number } | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<ExtraModifier[]>([]);
-  
+
   const [messageIndex, setMessageIndex] = useState(0);
   const [isRaining, setIsRaining] = useState(false);
-  const [rainAudio] = useState(new Audio('https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg'));
-  
+  const rainAudio = useRef(new Audio('/rain.ogg'));
+
   const [, setEmojiClicks] = useState(0);
   const [showHearts, setShowHearts] = useState(false);
   const [hearts, setHearts] = useState<HeartData[]>([]);
   const [, setHeartClickCount] = useState(0);
-  
+
   const [customAlert, setCustomAlert] = useState<string | null>(null);
   const [loveMessage, setLoveMessage] = useState<string | null>(null);
   const [, setBrigueiCount] = useState(0);
   const [titleText, setTitleText] = useState("Oii momo!");
+
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  // Compute preview wake time from current selection (inline, no extra state needed)
+  let previewWakeTime: string | null = null;
+  if (selectedBase) {
+    const extraHours = selectedExtras.reduce((acc, e) => acc + e.hours, 0);
+    const total = selectedBase.hours + extraHours;
+    const target = new Date(Date.now() + total * 3600000);
+    previewWakeTime = `${target.getHours().toString().padStart(2, '0')}:${target.getMinutes().toString().padStart(2, '0')}`;
+  }
 
   useEffect(() => {
     const savedAlarm = localStorage.getItem('momo_naninha');
@@ -91,7 +103,7 @@ export default function App() {
       setMessageIndex((prev) => (prev + 1) % cuteMessages.length);
     }, 300000);
 
-    const interval = setInterval(() => {
+    const alarmInterval = setInterval(() => {
       const now = new Date();
       const target = new Date(alarm.targetTime);
 
@@ -109,22 +121,43 @@ export default function App() {
     }, 5000);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(alarmInterval);
       clearInterval(msgInterval);
     };
   }, [alarm]);
 
+  // Countdown timer — updates every second while alarm is active
   useEffect(() => {
-    rainAudio.loop = true;
+    if (!alarm) {
+      setTimeLeft(null);
+      return;
+    }
+    const update = () => {
+      const diff = new Date(alarm.targetTime).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft('0min');
+        return;
+      }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setTimeLeft(h > 0 ? `${h}h ${m}min` : `${m}min`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [alarm]);
+
+  useEffect(() => {
+    rainAudio.current.loop = true;
     if (isRaining) {
-      rainAudio.play().catch(() => setIsRaining(false));
+      rainAudio.current.play().catch(() => setIsRaining(false));
     } else {
-      rainAudio.pause();
+      rainAudio.current.pause();
     }
     return () => {
-      rainAudio.pause();
+      rainAudio.current.pause();
     };
-  }, [isRaining, rainAudio]);
+  }, [isRaining]);
 
   const handleTitleClick = () => {
     setTitleText("Oii minha vida! 💖");
@@ -135,9 +168,7 @@ export default function App() {
     e.stopPropagation();
     setEmojiClicks((prev) => {
       const current = prev + 1;
-      if (current === 3) {
-        startHeartsFall();
-      }
+      if (current === 3) startHeartsFall();
       return current;
     });
   };
@@ -153,7 +184,7 @@ export default function App() {
     setHearts(newHearts);
     setShowHearts(true);
     setHeartClickCount(0);
-    
+
     setTimeout(() => {
       setShowHearts(false);
       setEmojiClicks(0);
@@ -174,9 +205,7 @@ export default function App() {
     });
   };
 
-  const toggleRain = () => {
-    setIsRaining(!isRaining);
-  };
+  const toggleRain = () => setIsRaining(!isRaining);
 
   const toggleExtra = (extra: ExtraModifier) => {
     if (extra.id === 'ext3') {
@@ -208,20 +237,16 @@ export default function App() {
 
     let fullLabel = selectedBase.label;
     if (selectedExtras.length > 0) {
-      const extraLabels = selectedExtras.map((e) => e.label).join(', ');
-      fullLabel += ` + ${extraLabels}`;
+      fullLabel += ` + ${selectedExtras.map((e) => e.label).join(', ')}`;
     }
 
     const now = new Date();
     const target = new Date(now.getTime() + totalHours * 60 * 60 * 1000);
 
-    const hoursStr = target.getHours().toString().padStart(2, '0');
-    const minutesStr = target.getMinutes().toString().padStart(2, '0');
-
     const newPending = {
       targetTime: target.toISOString(),
       label: fullLabel,
-      displayTime: `${hoursStr}:${minutesStr}`,
+      displayTime: `${target.getHours().toString().padStart(2, '0')}:${target.getMinutes().toString().padStart(2, '0')}`,
     };
 
     setPendingAlarm(newPending);
@@ -230,51 +255,48 @@ export default function App() {
   };
 
   const confirmAlarm = () => {
-    if (pendingAlarm) {
-      setAlarm(pendingAlarm);
-      localStorage.setItem('momo_naninha', JSON.stringify(pendingAlarm));
-      localStorage.removeItem('momo_pending_naninha');
+    if (!pendingAlarm) return;
 
-      const target = new Date(pendingAlarm.targetTime);
-      
-      const formatICSDate = (date: Date) => {
-        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-      };
+    setAlarm(pendingAlarm);
+    localStorage.setItem('momo_naninha', JSON.stringify(pendingAlarm));
+    localStorage.removeItem('momo_pending_naninha');
 
-      const icsContent = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'BEGIN:VEVENT',
-        `DTSTART:${formatICSDate(target)}`,
-        `DTEND:${formatICSDate(target)}`,
-        'SUMMARY:Hora de Acordar, Momo!',
-        'DESCRIPTION:Seu tempo de descanso acabou.',
-        'BEGIN:VALARM',
-        'TRIGGER:-PT0M',
-        'ACTION:DISPLAY',
-        'DESCRIPTION:Hora de Acordar, Momo!',
-        'END:VALARM',
-        'END:VEVENT',
-        'END:VCALENDAR'
-      ].join('\n');
+    const target = new Date(pendingAlarm.targetTime);
+    const formatICSDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
 
-      const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', 'naninha_momo.ics');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'BEGIN:VEVENT',
+      `DTSTART:${formatICSDate(target)}`,
+      `DTEND:${formatICSDate(target)}`,
+      'SUMMARY:Hora de Acordar, Momo!',
+      'DESCRIPTION:Seu tempo de descanso acabou.',
+      'BEGIN:VALARM',
+      'TRIGGER:-PT0M',
+      'ACTION:DISPLAY',
+      'DESCRIPTION:Hora de Acordar, Momo!',
+      'END:VALARM',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\n');
 
-      setPendingAlarm(null);
-      setSelectedBase(null);
-      setSelectedExtras([]);
-      setRecoveredPending(false);
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'naninha_momo.ics');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        Notification.requestPermission();
-      }
+    setPendingAlarm(null);
+    setSelectedBase(null);
+    setSelectedExtras([]);
+    setRecoveredPending(false);
+
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
     }
   };
 
@@ -288,6 +310,7 @@ export default function App() {
     setAlarm(null);
     localStorage.removeItem('momo_naninha');
     setIsRaining(false);
+    setShowCancelConfirm(false);
   };
 
   return (
@@ -297,6 +320,18 @@ export default function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <p>{customAlert}</p>
             <button className="modal-btn" onClick={() => setCustomAlert(null)}>Entendido</button>
+          </div>
+        </div>
+      )}
+
+      {showCancelConfirm && (
+        <div className="modal-overlay" onClick={() => setShowCancelConfirm(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <p>Tem certeza que quer acordar agora? 🌙</p>
+            <div className="modal-buttons">
+              <button className="modal-btn" onClick={cancelAlarm}>Sim, acordei!</button>
+              <button className="modal-btn-secondary" onClick={() => setShowCancelConfirm(false)}>Não, continua</button>
+            </div>
           </div>
         </div>
       )}
@@ -311,12 +346,12 @@ export default function App() {
         <div className="hearts-container">
           {hearts.map((h) => (
             h.visible && (
-              <div 
-                key={h.id} 
-                className="heart" 
+              <div
+                key={h.id}
+                className="heart"
                 onClick={(e) => handleHeartClick(h.id, e)}
-                style={{ 
-                  left: h.left, 
+                style={{
+                  left: h.left,
                   animationDuration: h.duration,
                   animationDelay: h.delay
                 }}
@@ -330,9 +365,9 @@ export default function App() {
 
       <div className="card">
         <img src="/logo.png" alt="Logo Naninha" className="app-logo" />
-        
+
         <h1 onClick={handleTitleClick} style={{ cursor: 'pointer', userSelect: 'none' }}>
-          {titleText} 
+          {titleText}
           <span onClick={handleEmojiClick} className="emoji-title"> 😴</span>
         </h1>
 
@@ -341,7 +376,7 @@ export default function App() {
         {!alarm && !pendingAlarm && (
           <div className="selection-area">
             <p className="question">Quando você deverá mimir?</p>
-            
+
             <div className="buttons-group">
               <button
                 className={`btn btn-high ${selectedBase?.id === 'base1' ? 'selected' : ''}`}
@@ -364,27 +399,34 @@ export default function App() {
             </div>
 
             <p className="question extras-title">Adicionais de cansaço:</p>
-            
+
             <div className="buttons-group extras-group">
               <button
                 className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext1') ? 'selected' : ''}`}
                 onClick={() => toggleExtra({ id: 'ext1', label: 'Manhã difícil', hours: 0.5 })}
               >
-                Manhã difícil
+                Manhã difícil <span className="extra-badge">+30min</span>
               </button>
               <button
                 className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext2') ? 'selected' : ''}`}
                 onClick={() => toggleExtra({ id: 'ext2', label: 'Aula muito chata', hours: 1 })}
               >
-                Aula muito chata
+                Aula muito chata <span className="extra-badge">+1h</span>
               </button>
               <button
                 className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext3') ? 'selected' : ''}`}
                 onClick={() => toggleExtra({ id: 'ext3', label: 'Briguei', hours: 3 })}
               >
-                Briguei
+                Briguei <span className="extra-badge">+3h</span>
               </button>
             </div>
+
+            {previewWakeTime && (
+              <div className="preview-time">
+                <span className="preview-label">Previsão de acordar:</span>
+                <span className="preview-value">{previewWakeTime}</span>
+              </div>
+            )}
 
             <button className="btn-generate" onClick={handleGenerateTime}>
               MOMO, ATÉ QUE HORAS EU VOU MIMIR?
@@ -415,7 +457,13 @@ export default function App() {
             <div className="alarm-status">
               <span className="pulse-icon">🌙</span>
               <p>Shhh... Você já está dormindo até as <strong>{alarm.displayTime}</strong></p>
-              
+
+              {timeLeft && (
+                <div className="time-left">
+                  Faltam <span className="time-left-value">{timeLeft}</span>
+                </div>
+              )}
+
               <p key={messageIndex} className="cute-message">
                 {cuteMessages[messageIndex]}
               </p>
@@ -427,7 +475,7 @@ export default function App() {
               <button className={`btn-rain ${isRaining ? 'active' : ''}`} onClick={toggleRain}>
                 {isRaining ? '🌧️ Desligar Chuva' : '🎧 Som de Chuva'}
               </button>
-              <button className="btn-cancel-dark" onClick={cancelAlarm}>Acordei mais cedo</button>
+              <button className="btn-cancel-dark" onClick={() => setShowCancelConfirm(true)}>Acordei mais cedo</button>
             </div>
           </div>
         )}
