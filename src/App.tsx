@@ -43,32 +43,32 @@ export default function App() {
   const [recoveredPending, setRecoveredPending] = useState(false);
   const [selectedBase, setSelectedBase] = useState<{ id: string; label: string; hours: number } | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<ExtraModifier[]>([]);
-  
   const [messageIndex, setMessageIndex] = useState(0);
   const [isRaining, setIsRaining] = useState(false);
   const [rainAudio] = useState(new Audio('https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg'));
-  
-  const [, setEmojiClicks] = useState(0);
   const [showHearts, setShowHearts] = useState(false);
   const [hearts, setHearts] = useState<HeartData[]>([]);
-  const [, setHeartClickCount] = useState(0);
-  
   const [customAlert, setCustomAlert] = useState<string | null>(null);
   const [loveMessage, setLoveMessage] = useState<string | null>(null);
-  const [, setBrigueiCount] = useState(0);
   const [titleText, setTitleText] = useState("Oii momo!");
+  const [emojiClicks, setEmojiClicks] = useState(0);
+  const [heartClickCount, setHeartClickCount] = useState(0);
+  const [brigueiCount, setBrigueiCount] = useState(0);
+  
+  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [weeklyCount, setWeeklyCount] = useState(0);
 
   useEffect(() => {
     const savedAlarm = localStorage.getItem('momo_naninha');
-    if (savedAlarm) {
-      setAlarm(JSON.parse(savedAlarm));
-    } else {
-      const savedPending = localStorage.getItem('momo_pending_naninha');
-      if (savedPending) {
-        setPendingAlarm(JSON.parse(savedPending));
-        setRecoveredPending(true);
-      }
+    if (savedAlarm) setAlarm(JSON.parse(savedAlarm));
+    
+    const savedPending = localStorage.getItem('momo_pending_naninha');
+    if (savedPending) {
+      setPendingAlarm(JSON.parse(savedPending));
+      setRecoveredPending(true);
     }
+
+    updateWeeklyHistory();
 
     if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
@@ -81,50 +81,65 @@ export default function App() {
     } else {
       document.body.classList.remove('dark-mode');
       setIsRaining(false);
+      setTimeLeft("");
     }
   }, [alarm]);
 
   useEffect(() => {
     if (!alarm) return;
 
+    const timerInterval = setInterval(() => {
+      const now = new Date().getTime();
+      const target = new Date(alarm.targetTime).getTime();
+      const difference = target - now;
+
+      if (difference <= 0) {
+        handleAlarmEnd();
+        clearInterval(timerInterval);
+      } else {
+        const h = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((difference % (1000 * 60)) / 1000);
+        setTimeLeft(`${h > 0 ? h + "h " : ""}${m}m ${s}s`);
+      }
+    }, 1000);
+
     const msgInterval = setInterval(() => {
       setMessageIndex((prev) => (prev + 1) % cuteMessages.length);
     }, 300000);
 
-    const interval = setInterval(() => {
-      const now = new Date();
-      const target = new Date(alarm.targetTime);
-
-      if (now >= target) {
-        if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Hora da naninha, Momo!', {
-            body: 'Seu tempo de descanso acabou, hora de acordar!',
-          });
-        } else {
-          setCustomAlert('Hora da naninha, Momo! Seu tempo de descanso acabou!');
-        }
-        setAlarm(null);
-        localStorage.removeItem('momo_naninha');
-      }
-    }, 5000);
-
     return () => {
-      clearInterval(interval);
+      clearInterval(timerInterval);
       clearInterval(msgInterval);
     };
   }, [alarm]);
 
-  useEffect(() => {
-    rainAudio.loop = true;
-    if (isRaining) {
-      rainAudio.play().catch(() => setIsRaining(false));
+  const handleAlarmEnd = () => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Hora da naninha, Momo!', {
+        body: 'Seu tempo de descanso acabou, hora de acordar!',
+      });
     } else {
-      rainAudio.pause();
+      setCustomAlert('Hora da naninha, Momo! Seu tempo de descanso acabou!');
     }
-    return () => {
-      rainAudio.pause();
-    };
-  }, [isRaining, rainAudio]);
+    setAlarm(null);
+    localStorage.removeItem('momo_naninha');
+  };
+
+  const updateWeeklyHistory = () => {
+    const history = JSON.parse(localStorage.getItem('momo_history') || '[]');
+    const oneWeekAgo = new Date().getTime() - (7 * 24 * 60 * 60 * 1000);
+    const recentHistory = history.filter((timestamp: number) => timestamp > oneWeekAgo);
+    localStorage.setItem('momo_history', JSON.stringify(recentHistory));
+    setWeeklyCount(recentHistory.length);
+  };
+
+  const addToHistory = () => {
+    const history = JSON.parse(localStorage.getItem('momo_history') || '[]');
+    history.push(new Date().getTime());
+    localStorage.setItem('momo_history', JSON.stringify(history));
+    updateWeeklyHistory();
+  };
 
   const handleTitleClick = () => {
     setTitleText("Oii minha vida! 💖");
@@ -133,13 +148,9 @@ export default function App() {
 
   const handleEmojiClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setEmojiClicks((prev) => {
-      const current = prev + 1;
-      if (current === 3) {
-        startHeartsFall();
-      }
-      return current;
-    });
+    const nextClicks = emojiClicks + 1;
+    setEmojiClicks(nextClicks);
+    if (nextClicks === 3) startHeartsFall();
   };
 
   const startHeartsFall = () => {
@@ -153,7 +164,6 @@ export default function App() {
     setHearts(newHearts);
     setShowHearts(true);
     setHeartClickCount(0);
-    
     setTimeout(() => {
       setShowHearts(false);
       setEmojiClicks(0);
@@ -163,33 +173,36 @@ export default function App() {
   const handleHeartClick = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
     setHearts(prev => prev.map(h => h.id === id ? { ...h, visible: false } : h));
-    setHeartClickCount(prev => {
-      const next = prev + 1;
-      if (next % 5 === 0) {
-        const msgIndex = (next / 5 - 1) % secretLoveMessages.length;
-        setLoveMessage(secretLoveMessages[msgIndex]);
-        setTimeout(() => setLoveMessage(null), 3000);
-      }
-      return next;
-    });
+    const nextHeartClicks = heartClickCount + 1;
+    setHeartClickCount(nextHeartClicks);
+    if (nextHeartClicks % 5 === 0) {
+      const msgIndex = (nextHeartClicks / 5 - 1) % secretLoveMessages.length;
+      setLoveMessage(secretLoveMessages[msgIndex]);
+      setTimeout(() => setLoveMessage(null), 3000);
+    }
   };
 
   const toggleRain = () => {
-    setIsRaining(!isRaining);
+    rainAudio.loop = true;
+    if (isRaining) {
+      rainAudio.pause();
+      setIsRaining(false);
+    } else {
+      rainAudio.play().catch(() => {});
+      setIsRaining(true);
+    }
   };
 
   const toggleExtra = (extra: ExtraModifier) => {
     if (extra.id === 'ext3') {
-      setBrigueiCount(prev => {
-        const current = prev + 1;
-        if (current === 3) {
-          setCustomAlert("Mentira! A gente nunca briga de verdade! Te amo muito! ❤️");
-          return 0;
-        }
-        return current;
-      });
+      const nextBriguei = brigueiCount + 1;
+      setBrigueiCount(nextBriguei);
+      if (nextBriguei === 3) {
+        setCustomAlert("Mentira! A gente nunca briga de verdade! Te amo muito! ❤️");
+        setBrigueiCount(0);
+        return;
+      }
     }
-
     if (selectedExtras.some((e) => e.id === extra.id)) {
       setSelectedExtras(selectedExtras.filter((e) => e.id !== extra.id));
     } else {
@@ -202,28 +215,19 @@ export default function App() {
       setCustomAlert('Por favor, selecione pelo menos uma opção de soninho!');
       return;
     }
-
     const extraHours = selectedExtras.reduce((acc, curr) => acc + curr.hours, 0);
     const totalHours = selectedBase.hours + extraHours;
-
     let fullLabel = selectedBase.label;
     if (selectedExtras.length > 0) {
-      const extraLabels = selectedExtras.map((e) => e.label).join(', ');
-      fullLabel += ` + ${extraLabels}`;
+      fullLabel += ` + ${selectedExtras.map((e) => e.label).join(', ')}`;
     }
-
     const now = new Date();
     const target = new Date(now.getTime() + totalHours * 60 * 60 * 1000);
-
-    const hoursStr = target.getHours().toString().padStart(2, '0');
-    const minutesStr = target.getMinutes().toString().padStart(2, '0');
-
     const newPending = {
       targetTime: target.toISOString(),
       label: fullLabel,
-      displayTime: `${hoursStr}:${minutesStr}`,
+      displayTime: `${target.getHours().toString().padStart(2, '0')}:${target.getMinutes().toString().padStart(2, '0')}`,
     };
-
     setPendingAlarm(newPending);
     setRecoveredPending(false);
     localStorage.setItem('momo_pending_naninha', JSON.stringify(newPending));
@@ -234,60 +238,28 @@ export default function App() {
       setAlarm(pendingAlarm);
       localStorage.setItem('momo_naninha', JSON.stringify(pendingAlarm));
       localStorage.removeItem('momo_pending_naninha');
-
-      const target = new Date(pendingAlarm.targetTime);
+      addToHistory();
       
-      const formatICSDate = (date: Date) => {
-        return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-      };
-
+      const target = new Date(pendingAlarm.targetTime);
+      const formatICSDate = (date: Date) => date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       const icsContent = [
-        'BEGIN:VCALENDAR',
-        'VERSION:2.0',
-        'BEGIN:VEVENT',
-        `DTSTART:${formatICSDate(target)}`,
-        `DTEND:${formatICSDate(target)}`,
-        'SUMMARY:Hora de Acordar, Momo!',
-        'DESCRIPTION:Seu tempo de descanso acabou.',
-        'BEGIN:VALARM',
-        'TRIGGER:-PT0M',
-        'ACTION:DISPLAY',
-        'DESCRIPTION:Hora de Acordar, Momo!',
-        'END:VALARM',
-        'END:VEVENT',
-        'END:VCALENDAR'
+        'BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT',
+        `DTSTART:${formatICSDate(target)}`, `DTEND:${formatICSDate(new Date(target.getTime() + 10 * 60000))}`,
+        'SUMMARY:Acordar Momo! 🌸', 'DESCRIPTION:Hora de levantar!',
+        'BEGIN:VALARM', 'TRIGGER:-PT0M', 'ACTION:DISPLAY', 'DESCRIPTION:Acordar!', 'END:VALARM',
+        'END:VEVENT', 'END:VCALENDAR'
       ].join('\n');
-
       const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', 'naninha_momo.ics');
-      document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
 
       setPendingAlarm(null);
       setSelectedBase(null);
       setSelectedExtras([]);
-      setRecoveredPending(false);
-
-      if ('Notification' in window && Notification.permission !== 'granted') {
-        Notification.requestPermission();
-      }
     }
-  };
-
-  const cancelPending = () => {
-    setPendingAlarm(null);
-    localStorage.removeItem('momo_pending_naninha');
-    setRecoveredPending(false);
-  };
-
-  const cancelAlarm = () => {
-    setAlarm(null);
-    localStorage.removeItem('momo_naninha');
-    setIsRaining(false);
   };
 
   return (
@@ -301,111 +273,56 @@ export default function App() {
         </div>
       )}
 
-      {loveMessage && (
-        <div className="love-message-popup">
-          {loveMessage}
-        </div>
-      )}
+      {loveMessage && <div className="love-message-popup">{loveMessage}</div>}
 
       {showHearts && (
         <div className="hearts-container">
-          {hearts.map((h) => (
-            h.visible && (
-              <div 
-                key={h.id} 
-                className="heart" 
-                onClick={(e) => handleHeartClick(h.id, e)}
-                style={{ 
-                  left: h.left, 
-                  animationDuration: h.duration,
-                  animationDelay: h.delay
-                }}
-              >
-                ❤️
-              </div>
-            )
+          {hearts.map((h) => h.visible && (
+            <div key={h.id} className="heart" onClick={(e) => handleHeartClick(h.id, e)}
+                 style={{ left: h.left, animationDuration: h.duration, animationDelay: h.delay }}>❤️</div>
           ))}
         </div>
       )}
 
       <div className="card">
         <img src="/logo.png" alt="Logo Naninha" className="app-logo" />
-        
-        <h1 onClick={handleTitleClick} style={{ cursor: 'pointer', userSelect: 'none' }}>
-          {titleText} 
-          <span onClick={handleEmojiClick} className="emoji-title"> 😴</span>
+        <h1 onClick={handleTitleClick} style={{ cursor: 'pointer' }}>
+          {titleText} <span onClick={handleEmojiClick} className="emoji-title"> 😴</span>
         </h1>
 
-        {!alarm && !recoveredPending && <p className="subtitle">Está na hora de tirar uma naninha.</p>}
+        {!alarm && (
+          <div className="stats-badge">
+            Você já descansou <strong>{weeklyCount} vezes</strong> esta semana! ✨
+          </div>
+        )}
 
         {!alarm && !pendingAlarm && (
           <div className="selection-area">
             <p className="question">Quando você deverá mimir?</p>
-            
             <div className="buttons-group">
-              <button
-                className={`btn btn-high ${selectedBase?.id === 'base1' ? 'selected' : ''}`}
-                onClick={() => setSelectedBase({ id: 'base1', label: 'TÔ SONINHO', hours: 3 })}
-              >
-                TÔ SONINHO
-              </button>
-              <button
-                className={`btn btn-medium ${selectedBase?.id === 'base2' ? 'selected' : ''}`}
-                onClick={() => setSelectedBase({ id: 'base2', label: 'POUCO SONINHO', hours: 2.5 })}
-              >
-                POUCO SONINHO
-              </button>
-              <button
-                className={`btn btn-low ${selectedBase?.id === 'base3' ? 'selected' : ''}`}
-                onClick={() => setSelectedBase({ id: 'base3', label: 'SÓ QUERO DESCANSAR', hours: 2 })}
-              >
-                SÓ QUERO DESCANSAR
-              </button>
+              <button className={`btn btn-high ${selectedBase?.id === 'base1' ? 'selected' : ''}`} onClick={() => setSelectedBase({ id: 'base1', label: 'TÔ SONINHO', hours: 3 })}>TÔ SONINHO</button>
+              <button className={`btn btn-medium ${selectedBase?.id === 'base2' ? 'selected' : ''}`} onClick={() => setSelectedBase({ id: 'base2', label: 'POUCO SONINHO', hours: 2.5 })}>POUCO SONINHO</button>
+              <button className={`btn btn-low ${selectedBase?.id === 'base3' ? 'selected' : ''}`} onClick={() => setSelectedBase({ id: 'base3', label: 'SÓ QUERO DESCANSAR', hours: 2 })}>SÓ QUERO DESCANSAR</button>
             </div>
-
             <p className="question extras-title">Adicionais de cansaço:</p>
-            
             <div className="buttons-group extras-group">
-              <button
-                className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext1') ? 'selected' : ''}`}
-                onClick={() => toggleExtra({ id: 'ext1', label: 'Manhã difícil', hours: 0.5 })}
-              >
-                Manhã difícil
-              </button>
-              <button
-                className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext2') ? 'selected' : ''}`}
-                onClick={() => toggleExtra({ id: 'ext2', label: 'Aula muito chata', hours: 1 })}
-              >
-                Aula muito chata
-              </button>
-              <button
-                className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext3') ? 'selected' : ''}`}
-                onClick={() => toggleExtra({ id: 'ext3', label: 'Briguei', hours: 3 })}
-              >
-                Briguei
-              </button>
+              <button className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext1') ? 'selected' : ''}`} onClick={() => toggleExtra({ id: 'ext1', label: 'Manhã difícil', hours: 0.5 })}>Manhã difícil</button>
+              <button className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext2') ? 'selected' : ''}`} onClick={() => toggleExtra({ id: 'ext2', label: 'Aula muito chata', hours: 1 })}>Aula muito chata</button>
+              <button className={`btn btn-extra ${selectedExtras.some(e => e.id === 'ext3') ? 'selected' : ''}`} onClick={() => toggleExtra({ id: 'ext3', label: 'Briguei', hours: 3 })}>Briguei</button>
             </div>
-
-            <button className="btn-generate" onClick={handleGenerateTime}>
-              MOMO, ATÉ QUE HORAS EU VOU MIMIR?
-            </button>
+            <button className="btn-generate" onClick={handleGenerateTime}>MOMO, ATÉ QUE HORAS EU VOU MIMIR?</button>
           </div>
         )}
 
         {pendingAlarm && !alarm && (
           <div className="confirmation-area">
-            {recoveredPending ? (
-              <p className="highlight-text recovered">
-                Opa! Você esqueceu de ativar seu alarme para as <strong>{pendingAlarm.displayTime}</strong>
-              </p>
-            ) : (
-              <p className="highlight-text">
-                O despertador vai tocar às <strong>{pendingAlarm.displayTime}</strong>
-              </p>
-            )}
+            <p className="highlight-text">
+              {recoveredPending ? "Lembrete do soninho para às:" : "O despertador vai tocar às:"}
+              <strong>{pendingAlarm.displayTime}</strong>
+            </p>
             <div className="action-buttons">
               <button className="btn-confirm" onClick={confirmAlarm}>Ativar Alarme</button>
-              <button className="btn-cancel" onClick={cancelPending}>Voltar</button>
+              <button className="btn-cancel" onClick={() => setPendingAlarm(null)}>Voltar</button>
             </div>
           </div>
         )}
@@ -414,20 +331,13 @@ export default function App() {
           <div className="active-alarm-area">
             <div className="alarm-status">
               <span className="pulse-icon">🌙</span>
-              <p>Shhh... Você já está dormindo até as <strong>{alarm.displayTime}</strong></p>
-              
-              <p key={messageIndex} className="cute-message">
-                {cuteMessages[messageIndex]}
-              </p>
-
-              <p className="alarm-label">Motivos: {alarm.label}</p>
+              <p>Dormindo até as <strong>{alarm.displayTime}</strong></p>
+              <div className="countdown-timer">Faltam: {timeLeft}</div>
+              <p className="cute-message">{cuteMessages[messageIndex]}</p>
             </div>
-
             <div className="action-buttons-column">
-              <button className={`btn-rain ${isRaining ? 'active' : ''}`} onClick={toggleRain}>
-                {isRaining ? '🌧️ Desligar Chuva' : '🎧 Som de Chuva'}
-              </button>
-              <button className="btn-cancel-dark" onClick={cancelAlarm}>Acordei mais cedo</button>
+              <button className={`btn-rain ${isRaining ? 'active' : ''}`} onClick={toggleRain}>{isRaining ? '🌧️ Parar Chuva' : '🎧 Som de Chuva'}</button>
+              <button className="btn-cancel-dark" onClick={() => setAlarm(null)}>Acordei!</button>
             </div>
           </div>
         )}
