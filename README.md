@@ -1,7 +1,7 @@
 # 😴 Naninha da Momo
 
 > Um app web fofo e personalizado para gerenciar o tempo de soninho da Momo.  
-> Calcula automaticamente o horário de acordar, integra com o calendário do iOS e tem mais de um segredo escondido.
+> Calcula automaticamente o horário de acordar, integra com o calendário do iOS e tem vários segredinhos escondidos.
 
 ---
 
