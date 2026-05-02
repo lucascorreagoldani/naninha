@@ -329,6 +329,8 @@ export default function App() {
       )}
 
       <div className="card">
+        <img src="/logo.png" alt="Logo Naninha" className="app-logo" />
+        
         <h1 onClick={handleTitleClick} style={{ cursor: 'pointer', userSelect: 'none' }}>
           {titleText} 
           <span onClick={handleEmojiClick} className="emoji-title"> 😴</span>
