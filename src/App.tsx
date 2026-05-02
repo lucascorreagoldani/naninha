@@ -13,6 +13,14 @@ interface ExtraModifier {
   hours: number;
 }
 
+interface HeartData {
+  id: number;
+  left: string;
+  duration: string;
+  delay: string;
+  visible: boolean;
+}
+
 const cuteMessages = [
   "Bons sonhos, meu amor...",
   "Dorme bem, amanhã o dia vai ser incrível!",
@@ -21,21 +29,45 @@ const cuteMessages = [
   "Descansa, minha princesa..."
 ];
 
+const secretLoveMessages = [
+  "Você é o amor da minha vida! 💖",
+  "Meu dengo! 🥰",
+  "Te amo infinitamente! 💘",
+  "Minha princesa! 👑",
+  "Para de clicar e vai mimir! 😂❤️"
+];
+
 export default function App() {
   const [alarm, setAlarm] = useState<AlarmData | null>(null);
   const [pendingAlarm, setPendingAlarm] = useState<AlarmData | null>(null);
+  const [recoveredPending, setRecoveredPending] = useState(false);
   const [selectedBase, setSelectedBase] = useState<{ id: string; label: string; hours: number } | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<ExtraModifier[]>([]);
+  
   const [messageIndex, setMessageIndex] = useState(0);
   const [isRaining, setIsRaining] = useState(false);
   const [rainAudio] = useState(new Audio('https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg'));
+  
   const [, setEmojiClicks] = useState(0);
   const [showHearts, setShowHearts] = useState(false);
+  const [hearts, setHearts] = useState<HeartData[]>([]);
+  const [, setHeartClickCount] = useState(0);
+  
+  const [customAlert, setCustomAlert] = useState<string | null>(null);
+  const [loveMessage, setLoveMessage] = useState<string | null>(null);
+  const [, setBrigueiCount] = useState(0);
+  const [titleText, setTitleText] = useState("Oii momo!");
 
   useEffect(() => {
-    const saved = localStorage.getItem('momo_naninha');
-    if (saved) {
-      setAlarm(JSON.parse(saved));
+    const savedAlarm = localStorage.getItem('momo_naninha');
+    if (savedAlarm) {
+      setAlarm(JSON.parse(savedAlarm));
+    } else {
+      const savedPending = localStorage.getItem('momo_pending_naninha');
+      if (savedPending) {
+        setPendingAlarm(JSON.parse(savedPending));
+        setRecoveredPending(true);
+      }
     }
 
     if ('Notification' in window && Notification.permission === 'default') {
@@ -69,7 +101,7 @@ export default function App() {
             body: 'Seu tempo de descanso acabou, hora de acordar!',
           });
         } else {
-          alert('Hora da naninha, Momo! Seu tempo de descanso acabou!');
+          setCustomAlert('Hora da naninha, Momo! Seu tempo de descanso acabou!');
         }
         setAlarm(null);
         localStorage.removeItem('momo_naninha');
@@ -94,17 +126,51 @@ export default function App() {
     };
   }, [isRaining, rainAudio]);
 
-  const handleEmojiClick = () => {
+  const handleTitleClick = () => {
+    setTitleText("Oii minha vida! 💖");
+    setTimeout(() => setTitleText("Oii momo!"), 3000);
+  };
+
+  const handleEmojiClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setEmojiClicks((prev) => {
       const current = prev + 1;
       if (current === 3) {
-        setShowHearts(true);
-        setTimeout(() => {
-          setShowHearts(false);
-          setEmojiClicks(0);
-        }, 5000);
+        startHeartsFall();
       }
       return current;
+    });
+  };
+
+  const startHeartsFall = () => {
+    const newHearts = Array.from({ length: 30 }).map((_, i) => ({
+      id: i,
+      left: `${Math.random() * 90 + 5}%`,
+      duration: `${3 + Math.random() * 4}s`,
+      delay: `${Math.random() * 1.5}s`,
+      visible: true
+    }));
+    setHearts(newHearts);
+    setShowHearts(true);
+    setHeartClickCount(0);
+    
+    setTimeout(() => {
+      setShowHearts(false);
+      setEmojiClicks(0);
+    }, 8000);
+  };
+
+  const handleHeartClick = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHearts(prev => prev.map(h => h.id === id ? { ...h, visible: false } : h));
+    setHeartClickCount(prev => {
+      const next = prev + 1;
+      if (next % 5 === 0) {
+        const msgIndex = (next / 5 - 1) % secretLoveMessages.length;
+        setLoveMessage(secretLoveMessages[msgIndex]);
+        setTimeout(() => setLoveMessage(null), 3000);
+      }
+      return next;
     });
   };
 
@@ -113,6 +179,17 @@ export default function App() {
   };
 
   const toggleExtra = (extra: ExtraModifier) => {
+    if (extra.id === 'ext3') {
+      setBrigueiCount(prev => {
+        const current = prev + 1;
+        if (current === 3) {
+          setCustomAlert("Mentira! A gente nunca briga de verdade! Te amo muito! ❤️");
+          return 0;
+        }
+        return current;
+      });
+    }
+
     if (selectedExtras.some((e) => e.id === extra.id)) {
       setSelectedExtras(selectedExtras.filter((e) => e.id !== extra.id));
     } else {
@@ -122,7 +199,7 @@ export default function App() {
 
   const handleGenerateTime = () => {
     if (!selectedBase) {
-      alert('Por favor, selecione pelo menos uma opção de soninho!');
+      setCustomAlert('Por favor, selecione pelo menos uma opção de soninho!');
       return;
     }
 
@@ -141,17 +218,22 @@ export default function App() {
     const hoursStr = target.getHours().toString().padStart(2, '0');
     const minutesStr = target.getMinutes().toString().padStart(2, '0');
 
-    setPendingAlarm({
+    const newPending = {
       targetTime: target.toISOString(),
       label: fullLabel,
       displayTime: `${hoursStr}:${minutesStr}`,
-    });
+    };
+
+    setPendingAlarm(newPending);
+    setRecoveredPending(false);
+    localStorage.setItem('momo_pending_naninha', JSON.stringify(newPending));
   };
 
   const confirmAlarm = () => {
     if (pendingAlarm) {
       setAlarm(pendingAlarm);
       localStorage.setItem('momo_naninha', JSON.stringify(pendingAlarm));
+      localStorage.removeItem('momo_pending_naninha');
 
       const target = new Date(pendingAlarm.targetTime);
       
@@ -188,11 +270,18 @@ export default function App() {
       setPendingAlarm(null);
       setSelectedBase(null);
       setSelectedExtras([]);
+      setRecoveredPending(false);
 
       if ('Notification' in window && Notification.permission !== 'granted') {
         Notification.requestPermission();
       }
     }
+  };
+
+  const cancelPending = () => {
+    setPendingAlarm(null);
+    localStorage.removeItem('momo_pending_naninha');
+    setRecoveredPending(false);
   };
 
   const cancelAlarm = () => {
@@ -203,35 +292,49 @@ export default function App() {
 
   return (
     <div className="container">
+      {customAlert && (
+        <div className="modal-overlay" onClick={() => setCustomAlert(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <p>{customAlert}</p>
+            <button className="modal-btn" onClick={() => setCustomAlert(null)}>Entendido</button>
+          </div>
+        </div>
+      )}
+
+      {loveMessage && (
+        <div className="love-message-popup">
+          {loveMessage}
+        </div>
+      )}
+
       {showHearts && (
         <div className="hearts-container">
-          {Array.from({ length: 25 }).map((_, i) => (
-            <div 
-              key={i} 
-              className="heart" 
-              style={{ 
-                left: `${Math.random() * 100}%`, 
-                animationDuration: `${2 + Math.random() * 3}s` 
-              }}
-            >
-              ❤️
-            </div>
+          {hearts.map((h) => (
+            h.visible && (
+              <div 
+                key={h.id} 
+                className="heart" 
+                onClick={(e) => handleHeartClick(h.id, e)}
+                style={{ 
+                  left: h.left, 
+                  animationDuration: h.duration,
+                  animationDelay: h.delay
+                }}
+              >
+                ❤️
+              </div>
+            )
           ))}
         </div>
       )}
 
       <div className="card">
-        <h1>
-          Oii momo! 
-          <span 
-            onClick={handleEmojiClick} 
-            style={{ cursor: 'pointer', userSelect: 'none' }}
-          >
-            😴
-          </span>
+        <h1 onClick={handleTitleClick} style={{ cursor: 'pointer', userSelect: 'none' }}>
+          {titleText} 
+          <span onClick={handleEmojiClick} className="emoji-title"> 😴</span>
         </h1>
 
-        {!alarm && <p className="subtitle">Está na hora de tirar uma naninha.</p>}
+        {!alarm && !recoveredPending && <p className="subtitle">Está na hora de tirar uma naninha.</p>}
 
         {!alarm && !pendingAlarm && (
           <div className="selection-area">
@@ -289,12 +392,18 @@ export default function App() {
 
         {pendingAlarm && !alarm && (
           <div className="confirmation-area">
-            <p className="highlight-text">
-              O despertador vai tocar às <strong>{pendingAlarm.displayTime}</strong>
-            </p>
+            {recoveredPending ? (
+              <p className="highlight-text recovered">
+                Opa! Você esqueceu de ativar seu alarme para as <strong>{pendingAlarm.displayTime}</strong>
+              </p>
+            ) : (
+              <p className="highlight-text">
+                O despertador vai tocar às <strong>{pendingAlarm.displayTime}</strong>
+              </p>
+            )}
             <div className="action-buttons">
               <button className="btn-confirm" onClick={confirmAlarm}>Ativar Alarme</button>
-              <button className="btn-cancel" onClick={() => setPendingAlarm(null)}>Voltar</button>
+              <button className="btn-cancel" onClick={cancelPending}>Voltar</button>
             </div>
           </div>
         )}
