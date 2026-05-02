@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 
 interface AlarmData {
@@ -13,11 +13,24 @@ interface ExtraModifier {
   hours: number;
 }
 
+const cuteMessages = [
+  "Bons sonhos, meu amor...",
+  "Dorme bem, amanhã o dia vai ser incrível!",
+  "Carregando as baterias da Momo... 50%",
+  "Amo você daqui até a lua!",
+  "Descansa, minha princesa..."
+];
+
 export default function App() {
   const [alarm, setAlarm] = useState<AlarmData | null>(null);
   const [pendingAlarm, setPendingAlarm] = useState<AlarmData | null>(null);
   const [selectedBase, setSelectedBase] = useState<{ id: string; label: string; hours: number } | null>(null);
   const [selectedExtras, setSelectedExtras] = useState<ExtraModifier[]>([]);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [isRaining, setIsRaining] = useState(false);
+  const [rainAudio] = useState(new Audio('https://actions.google.com/sounds/v1/weather/rain_heavy_loud.ogg'));
+  const [emojiClicks, setEmojiClicks] = useState(0);
+  const [showHearts, setShowHearts] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('momo_naninha');
@@ -31,7 +44,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (alarm) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+      setIsRaining(false);
+    }
+  }, [alarm]);
+
+  useEffect(() => {
     if (!alarm) return;
+
+    const msgInterval = setInterval(() => {
+      setMessageIndex((prev) => (prev + 1) % cuteMessages.length);
+    }, 300000);
 
     const interval = setInterval(() => {
       const now = new Date();
@@ -50,8 +76,41 @@ export default function App() {
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      clearInterval(msgInterval);
+    };
   }, [alarm]);
+
+  useEffect(() => {
+    rainAudio.loop = true;
+    if (isRaining) {
+      rainAudio.play().catch(() => setIsRaining(false));
+    } else {
+      rainAudio.pause();
+    }
+    return () => {
+      rainAudio.pause();
+    };
+  }, [isRaining, rainAudio]);
+
+  const handleEmojiClick = () => {
+    setEmojiClicks((prev) => {
+      const current = prev + 1;
+      if (current === 3) {
+        setShowHearts(true);
+        setTimeout(() => {
+          setShowHearts(false);
+          setEmojiClicks(0);
+        }, 5000);
+      }
+      return current;
+    });
+  };
+
+  const toggleRain = () => {
+    setIsRaining(!isRaining);
+  };
 
   const toggleExtra = (extra: ExtraModifier) => {
     if (selectedExtras.some((e) => e.id === extra.id)) {
@@ -139,12 +198,38 @@ export default function App() {
   const cancelAlarm = () => {
     setAlarm(null);
     localStorage.removeItem('momo_naninha');
+    setIsRaining(false);
   };
 
   return (
     <div className="container">
+      {showHearts && (
+        <div className="hearts-container">
+          {Array.from({ length: 25 }).map((_, i) => (
+            <div 
+              key={i} 
+              className="heart" 
+              style={{ 
+                left: `${Math.random() * 100}%`, 
+                animationDuration: `${2 + Math.random() * 3}s` 
+              }}
+            >
+              ❤️
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="card">
-        <h1>Oii momo! 😴</h1>
+        <h1>
+          Oii momo! 
+          <span 
+            onClick={handleEmojiClick} 
+            style={{ cursor: 'pointer', userSelect: 'none' }}
+          >
+            😴
+          </span>
+        </h1>
 
         {!alarm && <p className="subtitle">Está na hora de tirar uma naninha.</p>}
 
@@ -219,9 +304,20 @@ export default function App() {
             <div className="alarm-status">
               <span className="pulse-icon">🌙</span>
               <p>Shhh... Você já está dormindo até as <strong>{alarm.displayTime}</strong></p>
+              
+              <p key={messageIndex} className="cute-message">
+                {cuteMessages[messageIndex]}
+              </p>
+
               <p className="alarm-label">Motivos: {alarm.label}</p>
             </div>
-            <button className="btn-cancel" onClick={cancelAlarm}>Acordei mais cedo</button>
+
+            <div className="action-buttons-column">
+              <button className={`btn-rain ${isRaining ? 'active' : ''}`} onClick={toggleRain}>
+                {isRaining ? '🌧️ Desligar Chuva' : '🎧 Som de Chuva'}
+              </button>
+              <button className="btn-cancel-dark" onClick={cancelAlarm}>Acordei mais cedo</button>
+            </div>
           </div>
         )}
       </div>
