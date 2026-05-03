@@ -57,10 +57,9 @@ const motivosTexts = [
   'Razões científicas:',
   'Justificativas sérias:',
   'Porque sim:',
-  'Culpa do Lucas:',
+  'Culpa do Momo:',
 ];
 
-// Pre-generated outside component so positions are stable across renders
 const STARS = Array.from({ length: 60 }, (_, i) => ({
   id: i,
   top: `${Math.random() * 95}%`,
